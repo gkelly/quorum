@@ -1,7 +1,7 @@
 use crate::Generate;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, Result};
 use ecies::utils::generate_keypair;
-use pem::{encode, parse, Pem};
+use pem::{encode, Pem};
 use sharks::{Share, Sharks};
 use std::{fs, path::Path};
 
@@ -45,31 +45,18 @@ pub(crate) fn recover_secret(share_paths: Vec<String>, threshold: u8) -> Result<
 
     for path in share_paths {
         let file = fs::read(path)?;
-        let pem = parse(file)?;
-        let share = match Share::try_from(pem.contents.as_slice()) {
-            Ok(s) => s,
-            Err(e) => {
-                bail!(
-                    "Failed to convert provided PEM-encoded share to Share: {}",
-                    e
-                );
-            }
-        };
+        let pem = pem::parse(file)?;
+        let share = Share::try_from(pem.contents.as_slice())
+            .map_err(|e| anyhow!("Failed to convert PEM-encoded share to Share: {:?}", e))?;
 
         shares.push(share);
     }
 
-    let secret: [u8; 32] = match sharks.recover(&shares) {
-        Ok(v) => match v.try_into() {
-            Ok(s) => s,
-            Err(_) => {
-                bail!("Failed to convert secret into 32-byte array");
-            }
-        },
-        Err(e) => {
-            bail!("Failed to recover secret: {}", e);
-        }
-    };
+    let secret: [u8; 32] = sharks
+        .recover(&shares)
+        .map_err(|e| anyhow!("Failed to recover secret: {:?}", e))?
+        .try_into()
+        .map_err(|e| anyhow!("Failed to convert secret into 32-byte array: {:?}", e))?;
 
     Ok(secret)
 }
