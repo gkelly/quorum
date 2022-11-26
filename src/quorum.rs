@@ -40,7 +40,7 @@ pub(crate) fn generate(args: &Generate) -> Result<()> {
 }
 
 pub(crate) fn recover_secret(share_paths: Vec<String>, threshold: u8) -> Result<[u8; 32]> {
-    let mut shares: Vec<Share> = vec![];
+    let mut shares = Vec::with_capacity(share_paths.len());
     let sharks = Sharks(threshold);
 
     for path in share_paths {
